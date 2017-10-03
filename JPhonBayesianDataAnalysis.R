@@ -30,16 +30,6 @@ options(replace.assign=TRUE,show.signif.stars=FALSE)
 options(replace.assign=TRUE,width=75)
 opts_chunk$set(dev='postscript')
 
-## ----loadfunctionsdata,echo=FALSE----------------------------------------
-source("R/RFunctions.R")
-source("R/ggplotpostpred.R")
-source("R/plotpostpred.R")
-source("R/multiplot.R")
-#source("R/generate_mixture_data.R")
-#source("R/generate_lnorm_data.R")
-source("R/stan_summary.R")
-source("R/plotresults.R")
-
 ## ----priors-from-file, echo=F--------------------------------------------
 # To be sure that I'm using the same priors as in the file, I'm extracting them:
 code <- paste(readLines("models/VarInt.stan"),collapse="\n")
