@@ -100,9 +100,6 @@ pm2 <- aggregate(msVOT ~ subject, datE[datE$voice==-1 & datE$gender=="f",], mean
 plotmat <- rbind(pm1[order(pm1$msVOT), ], pm2[order(pm2$msVOT), ])
 datE$subject <- factor(datE$subject, levels=plotmat$subject)
 
-## Is there a way in an Rnw file to specify an exact width, to match that of 
-## the inpage page size of the published article?  That way we could make each
-## of these be exactly half the page width, so they'll fit side by side.
 op<-par(mfrow=c(1,2))
 par(oma = c(1,1,0,0), mar = c(2.5, 1.9, 0.1, 0.1), mgp = c(1.7, 0.4, 0))
 pchs <- c(20, 18); names(pchs) <- c("unaspirated", "aspirated")
