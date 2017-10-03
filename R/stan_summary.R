@@ -1,0 +1,12 @@
+stan_results<-function(m,params=paramnames){
+  m_extr<-extract(m,pars=paramnames)
+  par_names<-names(m_extr)
+  means<-lapply(m_extr,mean)
+  quantiles<-lapply(m_extr,
+                    function(x)quantile(x,probs=c(0.025,0.975)))
+  means<-data.frame(means)
+  quants<-data.frame(quantiles)
+  summry<-t(rbind(means,quants))
+  colnames(summry)<-c("mean","lower","upper")
+  summry
+}
