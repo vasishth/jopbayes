@@ -6,7 +6,7 @@ date: "7/1/2018"
 output: html_document
 ---
 
-This file provides the main code snippets in the paper.
+This file provides the main code snippets in the paper. Start by loading the relevant libraries.
 
 ```{r setup}
 knitr::opts_chunk$set(echo = TRUE)
@@ -34,7 +34,7 @@ library(stringr)
 # Load data
 
 
-Mandarin data:
+Load Mandarin data:
 
 ```{r loaddataM}
 rawdatM <- read.delim("data/songyuan.txt", stringsAsFactors = F)
@@ -47,8 +47,7 @@ datM <- rawdatM %>%
                i = as.integer(as.factor(paste0(gender,subject))),
                j = as.integer(as.factor(WorldBet))) %>%
                mutate(subject = paste0(str_to_upper(gender),str_pad(i,2,pad="0"))) %>%
-                 select(i, j, subject, item=WorldBet, genderfact= gender, gender = genderc, VOT, vduration=msVowel,voice) %>% arrange(i,j) %>%
-        print() 
+                 select(i, j, subject, item=WorldBet, genderfact= gender, gender = genderc, VOT, vduration=msVowel,voice) %>% arrange(i,j) 
 
 datM_stops <- filter(datM, voice == -1)
 ```
@@ -66,8 +65,7 @@ datE <- rawdatE %>%
                i = as.integer(as.factor(paste0(gender,subject))),
                j = as.integer(as.factor(WorldBet))) %>%
                mutate(subject = paste0(str_to_upper(gender),str_pad(i,2,pad="0"))) %>%
-                 select(i, j, subject, item=WorldBet,genderfact= gender, gender = genderc, VOT, vduration=msVowel,voice) %>% arrange(i,j) %>%
-        print()
+                 select(i, j, subject, item=WorldBet,genderfact= gender, gender = genderc, VOT, vduration=msVowel,voice) %>% arrange(i,j) 
 
 datE_stops <- filter(datE, voice == -1)
 ```
@@ -138,7 +136,7 @@ plot(density(corrs[[3]],bw=0.15),ylab="density",xlab=expression(rho[w]),xlim=c(-
 
 # Fit Mandarin data using brms
 
-```{r fitMandarindata,cache=TRUE,include=FALSE,warning=FALSE,message=FALSE}
+```{r fitMandarindata,cache=TRUE,warning=FALSE,message=FALSE}
 priors <- c(set_prior("normal(0, 200)", class = "Intercept"),
                       set_prior("normal(0, 50)", class = "b", 
                                 coef = "gender"),
@@ -165,7 +163,11 @@ summary(m1M)
 ```
 
 ```{r stanplotMandarindata}
-stanplot(m1M, pars = c("^b","sd","sigma"))
+stanplot(m1M, pars = c("^b","sd","sigma"), type="hist")
+
+## correlation:
+stanplot(m1M, pars = c("cor"), type="hist")
+
 ```
 
 ## Example of Bayes factor calculation:
@@ -265,7 +267,7 @@ priors_cauchy <- c(set_prior("normal(0, 200)", class = "Intercept"),
             set_prior("normal(0, 20)", class = "sd"))
 ```
 
-```{r fitmemodel,cache=TRUE,include=FALSE,warning=FALSE,message=FALSE}
+```{r fitmemodel,cache=TRUE,warning=FALSE,message=FALSE}
 m2M_error <- brm(formula = meanVOT | se(seVOT)  ~ me(c_meanvdur, sevdur) + 
             (1 | subject),
             data = meansM, family = gaussian(), prior = priors_cauchy,
@@ -273,3 +275,12 @@ m2M_error <- brm(formula = meanVOT | se(seVOT)  ~ me(c_meanvdur, sevdur) +
             control = list(adapt_delta = 0.999,
                           max_treedepth=15))
 ```
+
+```{r}
+print(m2M_error)
+```
+
+```{r meplotstanplot}
+stanplot(m2M_error,pars=c("^b","sd"), type="hist")
+```
+
