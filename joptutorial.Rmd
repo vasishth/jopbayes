@@ -284,3 +284,131 @@ print(m2M_error)
 stanplot(m2M_error,pars=c("^b","sd"), type="hist")
 ```
 
+# Some extensions using rstan
+
+For canned models like the linear mixed models shown above, brms is great. However, if you are serious about learning Bayesian data analysis, eventually you will have to get your hands dirty with some Stan coding.  An example follows.
+
+## Measurement error on the independent variable only
+ 
+Suppose we want to use measurement error only on the vowel durations *computed by subject*, but we want to keep the independent variable (VOT) unaggregated, i.e., we retain the repeated measurements from subjects. Defining such a model in Stan is easy and transparent.  
+
+This model can apparently be fit in brms too, but I (Shravan Vasishth) find this presentation below much more transparent as a modeler. I see the transparency as an advantage of Stan. Of course, a big downside of this is the start-up cost of learning Stan coding, but this is worth the effort, in my opinion.
+ 
+First, we set up the Mandarin data, as an example: 
+ 
+```{r}
+datM$subject<-as.integer(as.factor(datM$subject))
+datMvoiced<-subset(datM,voice==1)
+
+## create a subject vector:
+subj<-sort(unique(datMvoiced$subject))
+
+## compute subject means and SEs for vowel duration:
+means<-ses<-rep(NA,length(subj))
+K<-length(subj)
+for(k in 1:20){
+  #print(subj[i])
+  dat_temp<-subset(datMvoiced,subject==k)
+  n<-dim(dat_temp)[1]
+  means[k]<-mean(dat_temp$vduration)
+  ses[k]<-sd(dat_temp$vduration)/sqrt(n)
+}
+
+subj_vduration<-data.frame(subject=subj,
+                           meanvdur=means,se=ses)
+
+## needed for brms:
+subj_vduration2<-subj_vduration
+## divide centered means by std deviation to normalize the centered means:
+subj_vduration2$cmeanvdur<-(subj_vduration$meanvdur-mean(subj_vduration$meanvdur))/sd(subj_vduration$meanvdur)
+## standardize standard error:
+subj_vduration2$sestd<-subj_vduration$se/sd(subj_vduration$meanvdur)
+
+## need merged data frame for brms:
+Mdatmerged<-merge(subset(datM,voice==-1),
+                  subj_vduration2,
+                  by.x=c("subject"),
+                  by.y=c("subject"))
+
+head(Mdatmerged)
+
+Mdat2.stan<-list(subj=as.integer(factor(Mdatmerged$subject)),
+                item=as.integer(factor(Mdatmerged$item)),
+                gend=Mdatmerged$gender,
+                meanvdur=subj_vduration2$cmeanvdur,
+                se=subj_vduration2$sestd,
+                J=length(unique(Mdatmerged$subj)),
+                K=length(unique(Mdatmerged$item)),
+                N=dim(Mdatmerged)[1],
+                y=Mdatmerged$VOT)
+```
+
+The Stan model below now fits a measurement error model, *on unaggregated VOT data* but aggregated estimates of centered and normalized mean vowel duration along with their measurement error (standardized standard error).
+
+```{r message=FALSE,warning=FALSE,cache=TRUE}
+m2Mmeaserrstan <- stan(file = "MeasErrVarInt.stan", 
+                data = Mdat2.stan,
+                control = list(adapt_delta = 0.999,max_treedepth=12))
+
+```
+
+The model looks like this:
+
+        data {
+        int<lower = 1> N;                  //number of data points
+        vector[N] y;                       //dep variable vot
+        int<lower = 1> J;                  //number of subjects
+        int<lower = 1> K;                  //number of items
+        vector[J] meanvdur;                // noisy centered mean vdur  
+        vector<lower = 0>[J] se;             // se mean vdur 
+        int<lower = 1, upper = J> subj[N];   //subject id
+        int<lower = 1, upper = K> item[N];   //item id
+        }
+        
+        parameters {
+        vector[2] beta;              //fixed intercept and slopes
+        vector[J] true_mvdur; // true unknown value mvdur
+        vector[J] u;                 //subject intercepts
+        vector[K] w;                 //item intercepts
+        real<lower=0> sigma_e;       //error sd
+        real<lower=0> sigma_u;       //subj sd
+        real<lower=0> sigma_w;       //item sd
+        }
+        
+        model {
+        vector[N] mu;
+        //priors
+        true_mvdur ~ normal(0, 200);         
+        meanvdur ~ normal(true_mvdur, se); // measurement model
+        beta[1] ~ normal(0, 200);
+        beta[2] ~ normal(0, 5);
+        sigma_e ~ normal(0, 20);
+        sigma_u ~ normal(0, 20);
+        sigma_w ~ normal(0, 20);
+        u ~ normal(0, sigma_u);    //subj random effects
+        w ~ normal(0, sigma_w);    //item random effects
+        // likelihood
+        mu = beta[1] + u[subj] + w[item] + beta[2] * true_mvdur[subj];
+        y ~ normal(mu, sigma_e);
+        }
+
+
+The results can be displayed/summarized in different ways:
+
+```{r}
+summary(m2Mmeaserrstan,pars=c("beta[1]","beta[2]","sigma_e","sigma_u","sigma_w"))$summary
+
+rstan::plot(m2Mmeaserrstan,pars=c("beta[1]","beta[2]","sigma_e","sigma_u","sigma_w"),type="hist")
+```
+
+It is now possible to fit a brms model that is similar to this one, but I have not tested the brms code.
+
+What is important to learn here is the Stan code allows us to express exactly how we believe the data were generated.
+
+# Session information
+
+Here are the packages I used to fit the models.
+
+```{r}
+sessionInfo()
+```
